@@ -1,0 +1,240 @@
+unit GraphLib;
+
+interface
+uses
+   SysUtils;
+type
+  TCMatrix=array[1..3] of array[1..3] of integer;
+  TPathMass=array of integer;
+  TPathMatrix=array of TPathMass;
+  TFunc=procedure(var A:TCMatrix; i,j,k: integer);
+  
+var
+  CMatrix,FinalMatrix: TCMatrix;
+  PathMass: TPathMass;
+  PathMatrix:TPathMatrix;
+  Source,Dest,n,E: integer;
+
+procedure MakeCMatrix(var CostMatrix:TCMatrix; n:integer);
+function Floid(var CostMatrix: TCMatrix; Func: TFunc; n:Integer):TCMatrix;
+procedure Max(var A:TCMatrix; i,j,k: integer);
+procedure Min(var A:TCMatrix; i,j,k: integer);
+procedure FormCorrectPathList(var PathM:TPathMatrix; CostMatrix:TCMatrix);
+function CalcE(FloidMatrix:TCMatrix; n:integer):integer;
+function doDFS(var CMatrix: TCMatrix; n:integer; j:integer; var Source,Dest:integer): TPathMatrix;
+
+implementation
+
+procedure Deikstra(C:TCMatrix; Source,n:integer);
+var
+  fl:array[1..3] of boolean;
+  D,P,S:array[1..3] of integer;
+  i,j,k,m,v,w:integer;
+Begin
+  for i:=1 to n do
+    fl[i]:=false;
+  For i:=1 to n do
+    P[i]:=1;
+  For j:=1 to n do
+    D[j]:=C[Source,j];
+  For j:=2 to n do
+  Begin
+    m:=2;
+    While fl[m]= true do
+      m:=m+1;
+    w:=D[m];
+    s[j]:=m;
+    For k:=m+1 to n do
+      if fl[k]=false then
+        if D[k]< w then
+        begin
+          w:=D[k];
+          s[j]:=k;
+        end;
+    v:=s[j];
+    fl[v]:=true;
+    for i:=1 to n do
+    begin
+      if D[i]> D[v]+C[v,i] then
+      begin
+        P[i]:=v;
+        D[i]:=D[v]+C[v,i];
+      end;
+    end;
+  end;
+end;
+
+
+procedure Max(var A:TCMatrix; i,j,k: integer);
+begin
+  if A[i,k]+ A[k,j]> A[i,j] then
+      A[i,j]:= A[i,k]+ A[k,j];
+end;
+
+procedure Min(var A:TCMatrix; i,j,k: integer);
+begin
+  if A[i,k]+ A[k,j]< A[i,j] then
+      A[i,j]:= A[i,k]+ A[k,j];
+end;
+
+procedure MakeCMatrix(var CostMatrix:TCMatrix; n:integer);
+var
+  i,j:integer;
+  F: textfile;
+begin
+  AssignFile(F,'GraphCosts.txt');
+  Reset(F);
+  for i:=1 to n do
+    for j:=1 to n do
+      readln(F,CostMatrix[i,j]);
+  Close(F);
+end;
+
+procedure FormCorrectPathList(var PathM:TPathMatrix; CostMatrix:TCMatrix);
+var
+  i,j:integer;
+  Temp:TPathMass;
+procedure CalcLength(var PathMass: TPathMass);
+var
+  i,Sum:integer;
+begin
+  Sum:=0;
+  for i:=1 to length(PathMass)-2 do
+    Sum:=Sum+CostMatrix[PathMass[i]][PathMass[i+1]];
+  PathMass[0]:=Sum;
+end;
+
+begin
+  for i:=0 to length(PathM)-1 do
+    CalcLength(PathM[i]);
+  for i:=0 to length(PathM)-1 do
+    for j:=length(PathM)-1 downto i+1 do
+      if PathM[j][0]<PathM[j-1][0] then
+      begin
+        Temp:=PathM[j];
+        PathM[j]:=PathM[j-1];
+        PathM[j-1]:=Temp;
+      end;
+end;
+
+function CalcE(FloidMatrix:TCMatrix; n:integer):integer;
+var
+  i,j,max,min,Ev:integer;
+begin
+  max:=0;
+  for j:=1 to n do
+  begin
+    for i:=1 to n do
+      if max<=FloidMatrix[i][j] then
+        max:=FloidMatrix[i][j];
+    if j=1 then
+    begin
+      min:=max;
+      Ev:=j;
+    end
+    else
+      if max<min then
+      begin
+        min:=max;
+        Ev:=j;
+      end;
+  end;
+  E:=min;
+  CalcE:=Ev;
+end;
+
+function Floid(var CostMatrix: TCMatrix; Func: TFunc; n:Integer):TCMatrix;
+var
+  i,j,k: integer;
+  A : TCMatrix;
+begin
+  For i:=1 to n do
+    For j:=1 to n do
+      A[i,j]:=CostMatrix[i,j];
+  For k:=1 to n do
+    For i:=1 to n do
+      For j:=1 to n do
+      begin
+        Func(A,i,j,k);
+      end;
+  Floid:=A;
+end;
+
+function doDFS(var CMatrix: TCMatrix; n:integer; j:integer; var Source,Dest:integer): TPathMatrix;
+var
+  color:array[1..3] of integer;
+  i,u,k,ind,count:integer;
+  PathMass: TPathMass;
+  PathM:TPathMatrix;
+
+  procedure AddtoList(what: integer; var ind:integer);
+  var
+    i:integer;
+    f:boolean;
+  begin
+    f:=true;
+    for i:=2 to ind do
+      if PathMass[i]=what then
+        f:=false;
+    if f then
+    begin
+      inc(ind);
+      setlength(PathMass,ind);
+      PathMass[ind-1]:=what;
+    end;
+  end;
+
+  procedure DFS(u: integer; ind:integer);
+  var
+    v:integer;
+    f:boolean;
+  begin
+    color[u]:= 1;
+    AddtoList(u,ind);
+    v:=1;
+    while v<=n do
+    begin
+      if v=Dest then
+      begin
+        AddtoList(v,ind);
+        inc(count);
+        setlength(PathM,count);
+        PathM[count-1]:=PathMass;
+        inc(v);
+        dec(ind);
+      end;
+      if (CMatrix[u][v]<>0) and (color[v]=0) then
+        DFS(v,ind);
+      inc(v);
+    end;
+    color[u]:= 2;
+  end;
+
+begin
+  count:=0;
+  for k:=1 to n do
+  begin
+    for i:=1 to n do
+      color[i]:=0;
+    color[j]:=2;
+    if k<>j then
+    begin
+      ind:=1;
+      setlength(PathMass,2);
+      inc(ind);
+      PathMass[ind-1]:=j;
+      if k=Dest then
+      begin
+        AddtoList(k,ind);
+        inc(count);
+        setlength(PathM,count);
+        PathM[count-1]:=PathMass;
+      end
+      else
+        DFS(k,ind);
+    end;
+  end;
+  doDFS:=PathM;
+end;
+
+end.
